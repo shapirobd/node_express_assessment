@@ -17,20 +17,32 @@ function readURLFile(filename) {
 			console.error("Error: ", err);
 			process.exit(1);
 		}
-		let urlArr = data.split("\n");
+		let urlArr = filterURLArr(data.split("\n"));
 		getURLS(urlArr);
 	});
 }
 
+function filterURLArr(urlArr) {
+	return urlArr.filter((url) => {
+		return isValidURL(url)
+			? url
+			: console.error("Error: URL must begin with http:// or https://");
+	});
+}
+
+function isValidURL(url) {
+	return url.slice(0, 7) === "http://" || url.slice(0, 8) === "https://";
+}
+
 async function getURLS(urlArr) {
-	for (let url of urlArr) {
-		if (url.slice(0, 7) === "http://" || url.slice(0, 8) === "https://") {
-			let resp = await axios.get(url);
-			let domain = getDomain(url);
-			writeNewFile(resp.data, domain);
-		} else {
-			console.error("Invalid URL - must begin with http:// or https://");
-		}
+	let reqArr = [];
+	urlArr.map((url) => {
+		reqArr.push(axios.get(url));
+	});
+	let resps = await Promise.all(reqArr);
+	for (let resp of resps) {
+		let domain = getDomain(resp.config.url);
+		writeNewFile(resp.data, domain);
 	}
 }
 
