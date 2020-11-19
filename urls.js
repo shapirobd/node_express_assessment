@@ -1,16 +1,13 @@
 const fs = require("fs");
 const axios = require("axios");
+const {
+	determineFilename,
+	isValidURL,
+	filterURLArr,
+	getDomain,
+} = require("./helpers");
 
-let filename;
-if (!process.argv[2]) {
-	console.error("Error: FILENAME must be included as the third argument.");
-	process.exit(1);
-} else {
-	filename = process.argv[2];
-}
-
-readURLFile(filename);
-
+// reads file of urls and creates array from the list of urls
 function readURLFile(filename) {
 	fs.readFile(filename, "utf8", (err, data) => {
 		if (err) {
@@ -22,39 +19,27 @@ function readURLFile(filename) {
 	});
 }
 
-function filterURLArr(urlArr) {
-	return urlArr.filter((url) => {
-		return isValidURL(url)
-			? url
-			: console.error("Error: URL must begin with http:// or https://");
-	});
-}
-
-function isValidURL(url) {
-	return url.slice(0, 7) === "http://" || url.slice(0, 8) === "https://";
-}
-
+// makes array of GET requests for each url from urlArr and generates array of responses for each request
 async function getURLS(urlArr) {
 	let reqArr = [];
 	urlArr.map((url) => {
 		reqArr.push(axios.get(url));
 	});
 	let resps = await Promise.all(reqArr);
+	writeNewFiles(resps);
+}
+
+// writes the data from each response to a new file titled the domain name of the url
+function writeNewFiles(resps) {
 	for (let resp of resps) {
 		let domain = getDomain(resp.config.url);
-		writeNewFile(resp.data, domain);
+		fs.writeFile(domain, resp.data, "utf8", (err) => {
+			if (err) {
+				console.error("Error: ", err);
+			}
+		});
 	}
 }
 
-function writeNewFile(data, domain) {
-	fs.writeFile(domain, data, "utf8", (err) => {
-		if (err) {
-			console.error("Error: ", err);
-		}
-	});
-}
-
-function getDomain(url) {
-	let splitURL = url.split("/");
-	return splitURL[2];
-}
+let filename = determineFilename();
+readURLFile(filename);
